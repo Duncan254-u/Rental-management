@@ -1,16 +1,12 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from 'react';
+import AppRouter from './router';
+import { AuthProvider } from './context/AuthContext';
 
-function App() {
-  const [count, setCount] = useState(0);
-
+function App(){
   return (
-    <div className="p-6 bg-green-100 text-green-900 rounded">
-      Tailwind is working!
-    </div>
-  );
+    <AuthProvider>
+      <AppRouter/>
+    </AuthProvider>
+  )
 }
-
 export default App;

@@ -32,7 +32,7 @@ const AppRouter = () => {
             <Routes>
                 <Route path="/login" element={<LoginPage />} />
 
-                {* Protected Routes */}
+               
                 <Route element={<ProtectedRoute />}>
                     <Route path="/" element={<Layout />}>
                     <Route path="dashboard" element={<Dashboard />} />
@@ -43,9 +43,9 @@ const AppRouter = () => {
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     </Route>
                 </Route>
-
-
+                <Route path="*" element={<NotFoundPage />} />
             </Routes>
-    )
+        </Router>
+    );
 }
-
+export default AppRouter;
