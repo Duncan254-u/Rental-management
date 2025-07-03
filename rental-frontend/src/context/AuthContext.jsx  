@@ -1,0 +1,113 @@
+// src/context/AuthContext.jsx
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api'; // Import your configured Axios instance
+
+// Create AuthContext
+const AuthContext = createContext(null);
+
+// AuthProvider component
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [loading, setLoading] = useState(true); // To manage initial loading state
+
+  const navigate = useNavigate();
+
+  // Function to set user and token upon successful login
+  const login = useCallback(async (credentials) => {
+    try {
+      setLoading(true);
+      // Replace with your actual login API endpoint
+      const response = await api.post('/auth/login', credentials);
+      const { token: newToken, user: userData } = response.data; // Assuming API returns token and user data
+
+      localStorage.setItem('token', newToken);
+      setToken(newToken);
+      setUser(userData);
+      // Set the default Authorization header for all subsequent requests
+      api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      navigate('/dashboard'); // Redirect to dashboard after login
+    } catch (error) {
+      console.error('Login failed:', error);
+      // Handle login error (e.g., show a toast message)
+      throw error; // Re-throw to allow component to catch and display error
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate]);
+
+  // Function to clear user and token upon logout
+  const logout = useCallback(() => {
+    localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
+    delete api.defaults.headers.common['Authorization']; // Remove Authorization header
+    navigate('/login'); // Redirect to login page
+  }, [navigate]);
+
+  // Effect to check token on initial load and set Axios header
+  useEffect(() => {
+    if (token) {
+      // Validate token if needed (e.g., call a /me endpoint)
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      // Optional: Fetch user data based on token if not already stored or to validate token
+      const fetchUser = async () => {
+        try {
+          const response = await api.get('/auth/me'); // Example endpoint to get user details
+          setUser(response.data);
+        } catch (error) {
+          console.error('Failed to fetch user data with existing token:', error);
+          logout(); // Auto-logout if token is invalid or expired
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchUser();
+    } else {
+      setLoading(false);
+    }
+  }, [token, logout]); // Re-run if token or logout changes
+
+  // Axios Interceptor for auto-logout on 401 (Unauthorized) responses
+  useEffect(() => {
+    const interceptor = api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response && error.response.status === 401) {
+          console.error('Unauthorized request - auto-logging out.');
+          logout(); // Automatically log out if token is invalid or expired
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => {
+      api.interceptors.response.eject(interceptor); // Clean up interceptor on unmount
+    };
+  }, [logout]);
+
+  // Context value to be provided
+  const authContextValue = {
+    user,
+    token,
+    loading,
+    isAuthenticated: !!token,
+    login,
+    logout,
+  };
+
+  return (
+    <AuthContext.Provider value={authContextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+// Custom hook to use the AuthContext
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
